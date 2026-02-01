@@ -1,6 +1,6 @@
 
 import nltk
-#nltk.download('wordnet')
+nltk.download('wordnet')
 #nltk.download('omw-1.4')
 import math
 import sys
@@ -21,37 +21,30 @@ def get_synset(arg):
 
 def get_all_hypernym(c):
     if not c:
-        return None
+        return set()
     
-    current_hypernym = c.hypernyms()
-    result = []
-    
-    if len(current_hypernym) > 0:
-        
-        result.extend(current_hypernym)
-        
-        for hyp in current_hypernym:
-            next_hyper = get_all_hypernym(hyp)
-            for each in next_hyper:
-                if each not in result:
-                    result.append(each)
+    result = set()
+    for hyp in c.hypernyms():
+        result.add(hyp)
+        result.update(get_all_hypernym(hyp))
     return result
 
-    
-def LCS (c1, c2):
+def LCS(c1, c2):
     all_hyper1 = get_all_hypernym(c1)
     all_hyper2 = get_all_hypernym(c2)
     
     # Add the concepts themselves
-    all_hyper1.insert(0, c1)
-    all_hyper2.insert(0, c2)
+    all_hyper1.add(c1)
+    all_hyper2.add(c2)
     
-    # Find the first (nearest) common hypernym
-    for hyp1 in all_hyper1:
-        if hyp1 in all_hyper2:
-            return hyp1  # Return the first match (most specific)
+    # Find all common hypernyms
+    common = all_hyper1 & all_hyper2
     
-    return None
+    if not common:
+        return None
+    
+    # Return the deepest one (most specific)
+    return max(common, key=lambda s: s.min_depth())
 def get_top(c):
     hyper = c.hypernyms()
     #print(c, len(hyper))
@@ -61,22 +54,31 @@ def get_top(c):
     if len(hyper) > 0:
         return get_top(hyper[0])
 
-def count_concept(c):
+def count_concept(c,synset_set):
    
-    hyponyms = c.hyponyms()
     count = 0
-    if len(hyponyms) == 0: #synset is leaf
-       count += sum(lemma.count() for lemma in c.lemmas())
-    if len(hyponyms) > 0:
-       for hypo in hyponyms:
-           count += count_concept(hypo)
+    for lemma in c.lemmas():
+        #print(f"{lemma}: {lemma.count()}")
+        count += lemma.count() +1  # +1 smoothing
+    for hypo in c.hyponyms():
+        if hypo not in synset_set:
+            #print(f"Not repeat: {c}")
+            synset_set.add(hypo)
+            count += count_concept(hypo, synset_set)
+        #else:
+            #print(f"repeated {c}")
     return count
 def P_concept(c):
+    synset_set = set()
     top_concept = get_top(c)
-    total_concept = count_concept(top_concept)
-    count_c = count_concept(c)
+    
+    total_concept = count_concept(top_concept,synset_set)
+    #print(f"counting {c}")
+    synset_set = set() # reset the set to empty
+    count_c = count_concept(c,synset_set)
+    #print(f"top concept: {top_concept}, count {top_concept}: {total_concept}")
     #print("total count: ", total_concept)
-    #print("concept count: ", count_c)
+    #print(f"concept {c} count: ", count_c)
     
     return count_c/total_concept
 def pathlen(c1, c2):
@@ -111,15 +113,16 @@ def main():
     
     least_common = LCS(c1, c2)
     print("LCS: ", least_common )
-    #print("P_Concept: c1", P_concept(least_common))
-    print("sim Resnik", -math.log(P_concept(least_common)))
-    from nltk.corpus import wordnet_ic
-    ic = wordnet_ic.ic('ic-brown.dat') 
-    print("\treal sim Resnik: ", c1.res_similarity(c2,ic))
-    Lin_numerator = (2 * math.log(P_concept(least_common)))
-    Lin_denomerator = math.log(P_concept(c1)) + math.log(P_concept(c2))
-    print("sim Lin", Lin_numerator/Lin_denomerator)
-    print("real sim Lin: ", c1.lin_similarity(c2, ic))
+    print(f"P_Concept: {c1}: ", P_concept(c1))
+    
+    #print("sim Resnik", -math.log(P_concept(least_common)))
+    #from nltk.corpus import wordnet_ic
+    #ic = wordnet_ic.ic('ic-brown.dat') 
+    #print("\treal sim Resnik: ", c1.res_similarity(c2,ic))
+    #Lin_numerator = (2 * math.log(P_concept(least_common)))
+    #Lin_denomerator = math.log(P_concept(c1)) + math.log(P_concept(c2))
+    #print("sim Lin", Lin_numerator/Lin_denomerator)
+    #print("real sim Lin: ", c1.lin_similarity(c2, ic))
     #print(f"path similarity: {path_similarity(c1, c2):.3f}")
     #print(f"Resnik: {resnik_similarity(c1, c2):.3f}")
     #print(f"Lin: {lin_similarity(c1, c2):.3f}")
