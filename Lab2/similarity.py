@@ -102,67 +102,15 @@ def pathlen(c1, c2):
 
     return None
 def n_gram(gloss_tokens, n, match_tokens):
-    
     result = []
-    
     for i in range(len(gloss_tokens) - n + 1):
-        
-        #print(f"gloss_tokens[{i}:{i+n}]: {gloss_tokens[i:i+n]}\nmatch_token: {match_tokens}")
-       
-                
-        
+
         result.append(gloss_tokens[i:i+n])
             #print(f"gloss_token count: {gloss_tokens[i:i+n]}")
 
         
     return result
-def remove_ngram(gloss_ngrams, match_ngrams):
-    """
-    Remove matched n-gram and all overlapping n-grams from list.
-    
-    Args:
-        gloss_ngrams: List of n-grams [['a','dog'], ['dog','cat'], ...]
-        match_ngram: Single n-gram to match ['dog', 'cat']
-    
-    Returns:
-        List of remaining n-grams with match and overlaps removed
-    """
-    # Find the match
-    match_index = -1
-    for i in range(len(gloss_ngrams)):
-        
-        if gloss_ngrams[i] == match_ngrams:
-            match_index = i
-            break
-    
-    if match_index == -1:
-        return gloss_ngrams  # No match found
-    
-    # Calculate overlap range
-    n = len(match_ngram)
-    start_remove = max(0, match_index - (n - 1))
-    end_remove = min(len(gloss_ngrams), match_index + n)
-    
-    # Return n-grams outside the removal range
-    return gloss_ngrams[:start_remove] + gloss_ngrams[end_remove:]
-
-def get_gloss(c):
-    return c.definition()
-
 def overlap_score(gloss1, gloss2):
-    """
-    Calculate the overlap score between two glosses based on n-gram matching.
-    
-    Finds the highest n-gram matches first, then progressively shorter n-grams,
-    excluding previously matched portions.
-    
-    Args:
-        gloss1: First gloss/definition string
-        gloss2: Second gloss/definition string
-    
-    Returns:
-        float: Overlap score (sum of matched n-gram lengths)
-    """
     # Tokenize and normalize the glosses
     tokens1 = gloss1.lower().split()
     tokens2 = gloss2.lower().split()

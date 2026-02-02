@@ -5,6 +5,7 @@ from nltk.corpus import cmudict
 import syllables
 
 # Load CMU Pronouncing Dictionary
+nltk.download('cmudict')
 CMU_DICT = cmudict.dict()
 
 
