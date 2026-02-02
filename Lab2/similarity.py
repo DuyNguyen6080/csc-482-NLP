@@ -1,6 +1,7 @@
 
 import nltk
 nltk.download('wordnet')
+import re
 #nltk.download('omw-1.4')
 import math
 import sys
@@ -87,7 +88,8 @@ def pathlen(c1, c2):
     """
     visited = set()
     queue = [(c1, 0)]
-
+    if c1 == c2:
+        return 1
     while queue:
         current, dist = queue.pop(0)
         if current == c2:
@@ -99,7 +101,129 @@ def pathlen(c1, c2):
                 queue.append((n, dist + 1))
 
     return None
+def n_gram(gloss_tokens, n, match_tokens):
+    
+    result = []
+    
+    for i in range(len(gloss_tokens) - n + 1):
+        
+        #print(f"gloss_tokens[{i}:{i+n}]: {gloss_tokens[i:i+n]}\nmatch_token: {match_tokens}")
+       
+                
+        
+        result.append(gloss_tokens[i:i+n])
+            #print(f"gloss_token count: {gloss_tokens[i:i+n]}")
 
+        
+    return result
+def remove_ngram(gloss_ngrams, match_ngrams):
+    """
+    Remove matched n-gram and all overlapping n-grams from list.
+    
+    Args:
+        gloss_ngrams: List of n-grams [['a','dog'], ['dog','cat'], ...]
+        match_ngram: Single n-gram to match ['dog', 'cat']
+    
+    Returns:
+        List of remaining n-grams with match and overlaps removed
+    """
+    # Find the match
+    match_index = -1
+    for i in range(len(gloss_ngrams)):
+        
+        if gloss_ngrams[i] == match_ngrams:
+            match_index = i
+            break
+    
+    if match_index == -1:
+        return gloss_ngrams  # No match found
+    
+    # Calculate overlap range
+    n = len(match_ngram)
+    start_remove = max(0, match_index - (n - 1))
+    end_remove = min(len(gloss_ngrams), match_index + n)
+    
+    # Return n-grams outside the removal range
+    return gloss_ngrams[:start_remove] + gloss_ngrams[end_remove:]
+
+def get_gloss(c):
+    return c.definition()
+
+def overlap_score(gloss1, gloss2):
+    """
+    Calculate the overlap score between two glosses based on n-gram matching.
+    
+    Finds the highest n-gram matches first, then progressively shorter n-grams,
+    excluding previously matched portions.
+    
+    Args:
+        gloss1: First gloss/definition string
+        gloss2: Second gloss/definition string
+    
+    Returns:
+        float: Overlap score (sum of matched n-gram lengths)
+    """
+    # Tokenize and normalize the glosses
+    tokens1 = gloss1.lower().split()
+    tokens2 = gloss2.lower().split()
+    
+    # Track which tokens have been matched
+    matched1 = set()
+    matched2 = set()
+    
+    total_score = 0
+    
+    # Start from the maximum possible n-gram size down to 1
+    max_n = min(len(tokens1), len(tokens2))
+    
+    for n in range(max_n, 0, -1):
+        # Generate n-grams for both glosses that haven't been fully matched
+        ngrams1 = {}
+        for i in range(len(tokens1) - n + 1):
+            # Check if any token in this n-gram was already matched
+            if not any(idx in matched1 for idx in range(i, i + n)):
+                ngram = tuple(tokens1[i:i + n])
+                if ngram not in ngrams1:
+                    ngrams1[ngram] = []
+                ngrams1[ngram].append(i)
+        
+        ngrams2 = {}
+        for i in range(len(tokens2) - n + 1):
+            # Check if any token in this n-gram was already matched
+            if not any(idx in matched2 for idx in range(i, i + n)):
+                ngram = tuple(tokens2[i:i + n])
+                if ngram not in ngrams2:
+                    ngrams2[ngram] = []
+                ngrams2[ngram].append(i)
+        
+        # Find matching n-grams
+        #print(f"{n}_gram")
+        #print(f"ngram1: {ngrams1}")
+        #print(f"ngram2: {ngrams2}\n")
+        for ngram in ngrams1:
+            if ngram in ngrams2:
+                # Match found - use first available position from each
+                pos1 = ngrams1[ngram][0]
+                pos2 = ngrams2[ngram][0]
+                
+                # Mark these positions as matched
+                for idx in range(pos1, pos1 + n):
+                    matched1.add(idx)
+                for idx in range(pos2, pos2 + n):
+                    matched2.add(idx)
+                #print(f"match1: {matched1}")
+                #print(f"match1: {matched1}")
+                # Add to score (you can weight by n if desired)
+                total_score += n ** 2
+                
+                # Remove this ngram from further consideration
+                del ngrams2[ngram]
+                #print(f"after del: \nngram1: {ngrams1} \nngram2:{ngrams2}")
+    
+    return total_score
+
+
+#
 def main():
     if len(sys.argv) != 3:
         print("Usage: python similarity.py <arg1> <arg2>")
@@ -112,23 +236,52 @@ def main():
     print("sim path: ", 1/pathlen(c1,c2))
     
     least_common = LCS(c1, c2)
-    print("LCS: ", least_common )
-    print(f"P_Concept: {c1}: ", P_concept(c1))
+    #print("LCS: ", least_common )
+    #print(f"P_Concept: {c1}: ", P_concept(c1))
+    #print(c1.definition())
+    #print(c2.definition())
+    #print(overlap_score("a dog comma can not read the he is not human","A dog dot can not quack then he is not human"))
+    #overlap_score(c1.definition(),c2.definition())
+    #print(get_hypo_and_hyper_gloss(c1))
+    print("sim Resnik", -math.log(P_concept(least_common)))
     
-    #print("sim Resnik", -math.log(P_concept(least_common)))
-    #from nltk.corpus import wordnet_ic
-    #ic = wordnet_ic.ic('ic-brown.dat') 
-    #print("\treal sim Resnik: ", c1.res_similarity(c2,ic))
-    #Lin_numerator = (2 * math.log(P_concept(least_common)))
-    #Lin_denomerator = math.log(P_concept(c1)) + math.log(P_concept(c2))
-    #print("sim Lin", Lin_numerator/Lin_denomerator)
-    #print("real sim Lin: ", c1.lin_similarity(c2, ic))
-    #print(f"path similarity: {path_similarity(c1, c2):.3f}")
-    #print(f"Resnik: {resnik_similarity(c1, c2):.3f}")
-    #print(f"Lin: {lin_similarity(c1, c2):.3f}")
-    #print(f"JC: {jc_similarity(c1, c2):.3f}")
-    #print(f"extended Lesk: {extended_lesk(c1, c2):.3f}")
+    Lin_numerator = (2 * math.log(P_concept(least_common)))
+    Lin_denomerator = math.log(P_concept(c1)) + math.log(P_concept(c2))
+    print("sim Lin", Lin_numerator/Lin_denomerator)
+    
+    JC_denomerator = 2 * (math.log(P_concept(least_common)) - (math.log(P_concept(c1)) + math.log(P_concept(c2))))
+    print(f"JC_sim: {1/JC_denomerator}")
+    
+    c1_hypernyms = c1.hypernyms()
+    c2_hypernyms = c2.hypernyms()
+    
+    c1_hyponyms = c1.hyponyms()
+    c2_hyponyms = c2.hyponyms()
 
+    c1_hyper_def = []
+    c2_hyper_def = []
+
+    c1_hypo_def = []
+    c2_hypo_def = []
+
+    all_c1_def = []
+    all_c2_def = []
+    for hyper in c1_hypernyms:
+        all_c1_def.append(hyper.definition())
+    for hyper in c2_hypernyms:
+        all_c2_def.append(hyper.definition())
+    for hypo in c1_hyponyms:
+        all_c1_def.append(hypo.definition())
+    for hypo in c2_hyponyms:
+        all_c2_def.append(hypo.definition())
+    all_c1_def.append(c1.definition())
+    all_c2_def.append(c2.definition())
+    Lesk_score = 0
+    for c1_definition in all_c1_def:
+        for c2_definition in all_c2_def:
+            Lesk_score += overlap_score(c1_definition, c2_definition)
+
+    print(f"sim eLesk: {Lesk_score}")
 
 if __name__ == "__main__":
     main()
