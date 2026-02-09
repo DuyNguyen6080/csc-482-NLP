@@ -5,8 +5,19 @@ nltk.download('brown')
 nltk.download('treebank')
 from nltk.corpus import treebank
 
-
-
+grammar = nltk.CFG.fromstring(""" S -> NP VP 
+PP -> P NP 
+NP -> 'the' N | N PP | 'the' N PP 
+VP -> V NP | V PP | V NP PP 
+N -> 'cat' 
+N -> 'dog' 
+N -> 'rug' 
+V -> 'chased' 
+V -> 'sat' 
+P -> 'in' 
+P -> 'on' 
+""")
+print(grammar)
 def main():
     percentage_file = 10;
 
