@@ -1,99 +1,148 @@
-import numpy as np
-import math
-import nltk, copy, random
-nltk.download('brown')
-nltk.download('treebank')
-import re
+"""
+build_pcfg_reduced.py
+
+Construct a REDUCED PCFG from the Penn Treebank 10% sample.
+Labels are normalized to vanilla PTB categories.
+"""
+
+import nltk
 from nltk.corpus import treebank
-#from nltk import Production
-
-def colapse(rule: nltk.grammar.Production) -> nltk.grammar.Production:
-    lhs = rule.lhs()
-    rhs = rule.rhs()
-    lhs_new_POS = nltk.grammar.Nonterminal([w for w in re.split(r'[-_^]+', lhs.symbol()) if w][0])
-    rhs_new_POS = ()
-    
-    for each_POS in rhs:
-        if isinstance( each_POS, nltk.grammar.Nonterminal):
-            new_POS = (nltk.grammar.Nonterminal(re.split(r"[-_^]+",each_POS.symbol())[0]))
-            
-            rhs_new_POS += (new_POS,)
-        else:
-            rhs_new_POS += (each_POS,)
-    
-
-    if isinstance(lhs_new_POS, nltk.grammar.Nonterminal) and \
-        isinstance(rhs_new_POS, tuple):
-        new_production = nltk.grammar.Production(lhs_new_POS, rhs_new_POS)
-    
+from collections import defaultdict
+import re
 
 
-    return nltk.grammar.Production(lhs_new_POS, rhs_new_POS)
-###########    def Colaps()  #######################   TEST
-S = nltk.grammar.Nonterminal('S')
-N, V, P, DT, NBJ, VLDS = nltk.grammar.nonterminals('N, V, P, DT, N-BJ, V^LDS')
-productions = nltk.grammar.Production(S, [NBJ, VLDS])
-new_prod = colapse(productions)
-test_product = nltk.grammar.Production(S, [N, V])
+# --------------------------------------------------
+# Label normalization
+# --------------------------------------------------
 
-assert (new_prod == test_product), f"new_prodc: {new_prod} != test_prod: {test_product}"
+def normalize_label(label):
+    """
+    Convert a PTB label to a reduced 'vanilla' version.
+    """
+    # Remove functional suffixes: NP-SBJ, VP-TMP, etc.
+    label = re.split(r"[-_^]", label)[0]
 
-productions = nltk.grammar.Production(V, ["do"])
-new_prod = colapse(productions)
-test_product = nltk.grammar.Production(V, ["do"])
+    # Collapse POS families
+    if label.startswith("VB"):
+        return "VB"
+    if label.startswith("NN"):
+        return "NN"
+    if label.startswith("JJ"):
+        return "JJ"
+    if label.startswith("RB"):
+        return "RB"
 
-assert (new_prod == test_product), f"new_prodc: {new_prod} != test_prod: {test_product}"
+    return label
 
-productions = nltk.grammar.Production(NBJ, [V, P])
-new_prod = colapse(productions)
-test_product = nltk.grammar.Production(N, [V, P])
 
-assert (new_prod == test_product), f"new_prodc: {new_prod} != test_prod: {test_product}"
+# --------------------------------------------------
+# Load Treebank sample
+# --------------------------------------------------
 
-productions = nltk.grammar.Production(NBJ, [V, VLDS])
-new_prod = colapse(productions)
-test_product = nltk.grammar.Production(N, [V, V])
+def load_treebank_sample(sample_ratio=0.1):
+    trees = treebank.parsed_sents()
+    sample_size = int(len(trees) * sample_ratio)
+    return trees[:sample_size]
 
-assert (new_prod == test_product), f"new_prodc: {new_prod} != test_prod: {test_product}"
+
+# --------------------------------------------------
+# Extract and normalize productions
+# --------------------------------------------------
+
+def extract_reduced_productions(trees):
+    """
+    Extract productions and normalize all symbols.
+    """
+    reduced_productions = []
+
+    for tree in trees:
+        for prod in tree.productions():
+            lhs = normalize_label(str(prod.lhs()))
+            rhs = tuple(normalize_label(str(sym)) for sym in prod.rhs())
+            reduced_productions.append((lhs, rhs))
+
+    return reduced_productions
+
+
+# --------------------------------------------------
+# Count productions
+# --------------------------------------------------
+
+def count_productions(productions):
+    rule_counts = defaultdict(int)
+    lhs_counts = defaultdict(int)
+
+    for lhs, rhs in productions:
+        rule_counts[(lhs, rhs)] += 1
+        lhs_counts[lhs] += 1
+
+    return rule_counts, lhs_counts
+
+
+# --------------------------------------------------
+# Compute PCFG probabilities
+# --------------------------------------------------
+
+def compute_pcfg(rule_counts, lhs_counts):
+    pcfg_rules = []
+    for (lhs, rhs), count in rule_counts.items():
+        prob = count / lhs_counts[lhs]
+        pcfg_rules.append((lhs, rhs, prob))
+    return pcfg_rules
+
+
+# --------------------------------------------------
+# Print phrase-structure rules only
+# --------------------------------------------------
+
+def print_phrase_rules(pcfg_rules):
+    """
+    Print only NT -> NT* rules (ignore lexicon).
+    """
+    for lhs, rhs, prob in sorted(pcfg_rules):
+        if all(sym.isupper() for sym in rhs):
+            rhs_str = " ".join(rhs)
+            print(f"{lhs} -> {rhs_str} [{prob:.6f}]")
+
+
+# --------------------------------------------------
+# Write grammar to file
+# --------------------------------------------------
+
+def write_pcfg(pcfg_rules, output_path):
+    with open(output_path, "w", encoding="utf-8") as f:
+        for lhs, rhs, prob in sorted(pcfg_rules):
+            rhs_str = " ".join(rhs)
+            f.write(f"{lhs} -> {rhs_str} [{prob:.6f}]\n")
+
+
+# --------------------------------------------------
+# Main
+# --------------------------------------------------
 
 def main():
-    percentage_file = 10
+    print("Loading Penn Treebank 10% sample...")
+    trees = load_treebank_sample()
 
-    list_file_name = treebank.fileids()
-    total_n_file = len(treebank.fileids())
-    N_file_range = int(math.ceil((percentage_file*total_n_file)/100))
+    print("Extracting and normalizing productions...")
+    productions = extract_reduced_productions(trees)
 
-    print(f"File to read: {N_file_range}, total file: {total_n_file}")
-    grammar_rules_count = {}
-    total_rules = 0
-    # Go through each file and get the tree
-    # go through each tree to get CFG
-    # go through each CFG to get each rule
-    # add rule to a hasmap  key -> count++  
-    for i in range(N_file_range):
-        treebank_file = list_file_name[i]
-        trees = treebank.parsed_sents(treebank_file)
-        for each_tree in trees:
-            grammar_rules = each_tree.productions()
-            #print(grammar_rules)
-            for rule in grammar_rules:
-                rule = colapse(rule)
-                if rule in grammar_rules_count:
-                    grammar_rules_count[rule] += 1
-                else:
-                    grammar_rules_count[rule] = 1
-                total_rules += 1
+    print("Counting productions...")
+    rule_counts, lhs_counts = count_productions(productions)
 
-            
-    print(f"REDUCED_total_rules: {total_rules}")
-    print(f"REDUCED_lenth grammar: {len(grammar_rules_count)}")
-    print(f"REDUCED_grammar_rules_count: \n{grammar_rules_count}")
-    for each_count in grammar_rules_count:
-        grammar_rules_count[each_count] = grammar_rules_count[each_count] / total_rules
-        
-    print (f"REDUCED_PCFG: \n{grammar_rules_count}")
+    print("Computing reduced PCFG...")
+    pcfg_rules = compute_pcfg(rule_counts, lhs_counts)
 
+    print("\n===== REDUCED PCFG (PHRASE RULES ONLY) =====\n")
+    print_phrase_rules(pcfg_rules)
+
+    print("\nWriting reduced PCFG to file...")
+    write_pcfg(pcfg_rules, "pcfg_reduced.txt")
+
+    print("\nDone.")
+    print(f"Total reduced rules: {len(pcfg_rules)}")
 
 
 if __name__ == "__main__":
+    nltk.download("treebank")
     main()

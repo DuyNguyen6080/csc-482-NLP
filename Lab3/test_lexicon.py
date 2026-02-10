@@ -6,7 +6,7 @@ nltk.download('brown')
 nltk.download('treebank')
 import re
 from nltk.corpus import treebank
-from Lexicon import colapse, convert_lexicon, substitude, check_if_terminal,check_rhs
+from Lexicon import lexicalize, colapse, convert_lexicon, substitude, check_if_terminal
 
 
 S = nltk.grammar.Nonterminal('S')
@@ -69,3 +69,21 @@ def test_check_if_terminal():
     assert (check_if_terminal(productions)), f"{productions} not an terminal Expect terminal"
     productions = nltk.grammar.Production(NT, [V, P])
     assert (not check_if_terminal(productions)), f"{productions} an terminal Expect non terminal"
+def test_lexicalize():
+    t2 = nltk.tree.tree.Tree("NP", [
+    nltk.tree.tree.Tree("NP", [
+        nltk.tree.tree.Tree("DT", ["the"]),
+        nltk.tree.tree.Tree("NN", ["cat"])
+    ]),
+    nltk.tree.tree.Tree("PP", [
+        nltk.tree.tree.Tree("IN", ["on"]),
+        nltk.tree.tree.Tree("NP", [
+            nltk.tree.tree.Tree("DT", ["the"]),
+            nltk.tree.tree.Tree("NN", ["mat"])
+        ])
+    ])
+])  
+    expecting = 'cat'
+    output = lexicalize(t2)
+    assert(output == expecting), f"{output} != {expecting} expecting {output} == {expecting} "
+

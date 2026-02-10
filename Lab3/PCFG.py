@@ -4,6 +4,7 @@ import nltk, copy, random
 nltk.download('brown')
 nltk.download('treebank')
 from nltk.corpus import treebank
+import pprint
 
 grammar = nltk.CFG.fromstring(""" S -> NP VP 
 PP -> P NP 
@@ -17,7 +18,7 @@ V -> 'sat'
 P -> 'in' 
 P -> 'on' 
 """)
-print(grammar)
+#print(grammar)
 def main():
     percentage_file = 10;
 
@@ -50,12 +51,13 @@ def main():
         #print(f"reading file: {list_file_name[i]}")
     print(f"total_rules: {total_rules}")
     print(f"lenth grammar: {len(grammar_rules_count)}")
-    print(f"grammar_rules_count: \n{grammar_rules_count}")
+    old = grammar_rules_count.copy
+    
     for each_count in grammar_rules_count:
         grammar_rules_count[each_count] = grammar_rules_count[each_count] / total_rules
         #print(each_count, grammar_rules_count[each_count])
-    print (f"PCFG: \n{grammar_rules_count}")
-
+    pprint.pprint (grammar_rules_count, indent= 4)
+    pprint.pprint(old, indent=4)
 
 
 if __name__ == "__main__":
