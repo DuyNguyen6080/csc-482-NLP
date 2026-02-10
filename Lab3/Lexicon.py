@@ -84,7 +84,7 @@ def lexicalize(head: nltk.tree.tree.Tree) -> str:
         children = [c for c in tree if isinstance(c, nltk.tree.tree.Tree)]
         head_child = None
         # Rules to be lexicalized
-        #print(children)
+        
         # =========================
         # 1. NP
         # =========================
@@ -113,8 +113,10 @@ def lexicalize(head: nltk.tree.tree.Tree) -> str:
         # =========================
         # 2. VP
         # =========================
+        if label == "VP":
             for c in children:
                 if c.label() == "VP":
+                    #print("First VP")
                     return lexicalize(c)
 
             # Prefer leftmost main verb
@@ -393,7 +395,7 @@ def main():
     for each_tree in trees:
         #return a new tree without modify the original tree
         new_tree = force_lexicalize_and_colapse(each_tree)
-        #new_tree.draw()
+        new_tree.draw()
         new_lex_tree.append(new_tree)
     
     print("Extracting productions...")
